@@ -2,6 +2,8 @@
 
 A python implementation of a block cipher using elements from the AES and DES systems.
 
+Please note that currently only two bytes has been allocated for the counter so the maximum blocks is 2^16. With an 8-byte block size this means the maximum file size for this program is ~500kb.
+
 There has been no input sanitisaion or error handling done. File inputs are basic strings so paths may not work, only files located in the working
 are currently tested as working.
 
