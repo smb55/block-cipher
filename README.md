@@ -13,7 +13,7 @@ Use python secrets module to generate a (true?) random 128 bit (16 byte / 4 word
 Create 12 64-bit (8 byte / 2 word) keys from this 128-bit seed key with the following process: 
 Working with 4-byte words, process is similar to AES: 
 First four words are the four words in the original key. 
-To get 5th word, 4th word is put through the g-function, then XOR’d with the 1st word. 
+To get 5th word, 4th word is put through the g-function, then XOR’d with the 1st word.  
 To get 6th word, 5th word is XOR with 2nd word 
 To get 7th word, 6th word is XOR with 3rd word 
 To get 8th word, 7th word is XOR with 4th word. 
