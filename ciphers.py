@@ -5,7 +5,7 @@ from pathlib import Path
 
 ##################
 ##################
-# BLOCK CIPHER CODE
+# BLOCK CIPHER FUNCTIONS AND CONSTANTS
 ##################
 ##################
 
@@ -172,11 +172,14 @@ def transform(opFile, keyStream):
     '''This function transforms the file by XORing it with the provided keystream.'''
     return(bytes(data ^ key for data, key in zip(opFile, keyStream)))
 
-####   
-#### main program
-####
+##################
+##################
+# SHARED MAIN PROGRAM CODE - INPUTS
+##################
+##################
 
-#### capture inputs
+# string flags collected: cipher(s/b) mode(d/e) newKey(n/e) 
+# paths collected: keyFileName sourceFileName destFileName
 
 # select stream or block cipher
 cipher = input("[S]tream or [B]lock cipher? ").lower()
@@ -207,58 +210,78 @@ sourceFileName = Path(input("Enter the path to the source file: "))
 # set the destination for the transformed data
 destFileName = Path(input("Enter the path and filename for the destination file: "))
 
-# if mode is decryption
-if mode == 'd':
-    rawKey = load_key(keyFileName)
-    # load the source file
-    with sourceFileName.open(mode='rb') as f:
-        opFileRaw = f.read()
+##################
+##################
+# BLOCK CIPHER MAIN PROGRAM
+##################
+##################
 
-    # retrieve the IV from the end of the message
-    iv = opFileRaw[-4:]
-    opFile = opFileRaw[:-4]
-
-# if mode is encryption
-else:
-    # generate or load key
-    if newKey == 'n':
-        rawKey = generate_key(keyFileName)
-    else:
+if cipher == 'b':
+    # if mode is decryption
+    if mode == 'd':
         rawKey = load_key(keyFileName)
-    # open source file
-    with sourceFileName.open(mode='rb') as f:
-        opFile = f.read()
+        # load the source file
+        with sourceFileName.open(mode='rb') as f:
+            opFileRaw = f.read()
 
-    # create an IV
-    iv = generate_iv()
+        # retrieve the IV from the end of the message
+        iv = opFileRaw[-4:]
+        opFile = opFileRaw[:-4]
 
-#### at this point all further operations are the same for encryption and decryption so we can group them together.
+    # if mode is encryption
+    else:
+        # generate or load key
+        if newKey == 'n':
+            rawKey = generate_key(keyFileName)
+        else:
+            rawKey = load_key(keyFileName)
+        # open source file
+        with sourceFileName.open(mode='rb') as f:
+            opFile = f.read()
 
-# build the key schedule
-keySchedule = generate_key_schedule(generate_key_words(rawKey))
+        # create an IV
+        iv = generate_iv()
 
-# calc number of blocks and the number of bytes that need to be removed from the end of the keystream to match th input file length
-fullBlocks = len(opFile) // 8
+    #### at this point all further operations are the same for encryption and decryption so we can group them together.
 
-if len(opFile) % 8 != 0:
-    numBlocks = fullBlocks + 1
-    excessLen = 8 - (len(opFile) % 8)
+    # build the key schedule
+    keySchedule = generate_key_schedule(generate_key_words(rawKey))
+
+    # calc number of blocks and the number of bytes that need to be removed from the end of the keystream to match th input file length
+    fullBlocks = len(opFile) // 8
+
+    if len(opFile) % 8 != 0:
+        numBlocks = fullBlocks + 1
+        excessLen = 8 - (len(opFile) % 8)
+    else:
+        numBlocks = fullBlocks
+        excessLen = 0
+
+    # run the block cipher to build the keystream
+    keyStream = build_keystream(numBlocks, excessLen)
+
+    # encrypt/decrypt by XORing the input with the keystream
+    outputData = transform(opFile, keyStream)
+
+    # if mode is encrypt, append the iv to the output
+    if mode == 'e':
+        outputData += iv
+
+    # write the output to the specified file
+    with destFileName.open(mode='wb') as f:
+        f.write(outputData)
+
+##################
+##################
+# STREAM CIPHER MAIN PROGRAM
+##################
+##################
+
+if cipher == 's':
+    # stream cipher code here - remember to remove pass
+    pass
+
 else:
-    numBlocks = fullBlocks
-    excessLen = 0
-
-# run the block cipher to build the keystream
-keyStream = build_keystream(numBlocks, excessLen)
-
-# encrypt/decrypt by XORing the input with the keystream
-outputData = transform(opFile, keyStream)
-
-# if mode is encrypt, append the iv to the output
-if mode == 'e':
-    outputData += iv
-
-# write the output to the specified file
-with destFileName.open(mode='wb') as f:
-    f.write(outputData)
+    print("Invalid cipher selected. Please enter b or s.")
 
 print("Operation complete.")
