@@ -144,18 +144,31 @@ def sbox_sub(data):
      '''This function substitutes all bytes in the data bytearray with their matching entry in the s-box'''
      return bytearray([sbox[int(i)] for i in data])   
 
-def build_keystream(ivList, excessLen):
-    '''This function builds the synchronous stream cipher used to encrypt/decrypt the plaintext. It must be provided with a list of 8-byte
-    IVs (including the counter val) equal to the number of blocks in the stream, and the amount of excess bytes that need to be trimmed at the end.'''
+def build_keystream(numBlocks, excessLen):
+    '''This function builds the synchronous stream cipher used to encrypt/decrypt the plaintext. Input args are the
+     number of blocks and the amount of excess bytes that need to be trimmed at the end.'''
     keyStream = bytearray()
-    # encrypt each of the IVs in turn and add them to the key stream
-    for iv in ivList:
-        keyStream.extend(encrypt(iv, keySchedule))
+    # encrypt each of the IV+counter combos in turn and add them to the key stream
+    blocks = 0
+    for ivValue in gen_iv_blocks(iv):
+        keyStream.extend(encrypt(ivValue, keySchedule))
+        blocks += 1
+        if blocks == numBlocks:
+            break
     # remove the excess bytes to match the original file length (if there are excess bytes)
     if excessLen != 0:
         keyStream = keyStream[:(excessLen * -1)]
     
     return bytes(keyStream)
+
+def gen_iv_blocks(iv):
+    '''This is a generator function that will generate the next iv + counter combo to be encrypted by the block cipher.
+    takes the iv as argument and will yield successive iv+counter values until the counter hits 4 bytes and it breaks.'''
+    i = 0
+    while True:
+        counter = i.to_bytes(4, byteorder='big')
+        i += 1
+        yield iv + counter
 
 def transform(opFile, keyStream):
     '''This function transforms the file by XORing it with the provided keystream.'''
@@ -165,9 +178,10 @@ def transform(opFile, keyStream):
 #### main program
 ####
 
+#### capture inputs
+
 # select stream or block cipher
 cipher = input("[S]tream or [B]lock cipher? ").lower()
-
 # select encryption or decryption
 mode = input("[D]ecrypt or [E]ncrypt? ").lower()
 if mode == 'd':
@@ -194,6 +208,7 @@ else:
 sourceFileName = input("Enter the path to the source file: ")
 # set the destination for the transformed data
 destFileName = input("Enter the path and filename for the destination file: ")
+
 
 # if mode is decryption
 if mode == 'd':
@@ -236,14 +251,8 @@ else:
     numBlocks = fullBlocks
     excessLen = 0
 
-# combine IV with counter to create a list of unique IVs equal to number of blocks
-ivList = []
-for i in range(numBlocks):
-    counter = i.to_bytes(4, byteorder='big')
-    ivList.append(iv + counter)
-
 # run the block cipher to build the keystream
-keyStream = build_keystream(ivList, excessLen)
+keyStream = build_keystream(numBlocks, excessLen)
 
 # encrypt/decrypt by XORing the input with the keystream
 outputData = transform(opFile, keyStream)
