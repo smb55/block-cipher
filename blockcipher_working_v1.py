@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import secrets
 import sys
+import pathlib
 
 ##################
 ##################
@@ -115,8 +116,8 @@ def generate_key_schedule(keyWords):
     return keyList
 
 def generate_iv():
-    '''Return a random 6 byte IV as bytes.'''
-    return secrets.token_bytes(6)
+    '''Return a random 4 byte IV as bytes.'''
+    return secrets.token_bytes(4)
 
 #### functions to build the keystream and transform the data
 
@@ -166,6 +167,7 @@ def transform(opFile, keyStream):
 
 # select stream or block cipher
 cipher = input("[S]tream or [B]lock cipher? ").lower()
+
 # select encryption or decryption
 mode = input("[D]ecrypt or [E]ncrypt? ").lower()
 if mode == 'd':
@@ -174,47 +176,49 @@ if mode == 'd':
 elif mode == 'e':
     # select new or existing key
     newKey = input("Use a [n]ew or [e]xisting key? " ).lower()
-# load the file for decryption
-decryptFilePath = input("Enter the path to the file you would like to decrypt: ")
+
+    if newKey == 'n':
+        # for new key, select where to save it and generate it
+        keyFileName = input("Provide a path and filename for where the key should be saved: ")
+    elif newKey == 'e':
+        # for existing key, specify location and load it
+        keyFileName = input("Provide the path to the key you would like to load: ")
+    else:
+        print("Invalid key selection. Please choose n or e.")
+        sys.exit()
+else:
+    print("Invalid mode selection. Please choose e or d.")
+    sys.exit()
+
+# load the source file
+sourceFileName = input("Enter the path to the source file: ")
 # set the destination for the transformed data
-destFileName = input("Enter the path and filename for where you would like to save the output: ")
+destFileName = input("Enter the path and filename for the destination file: ")
 
 # if mode is decryption
 if mode == 'd':
     rawKey = load_key(keyFileName)
 
-    with open(decryptFilePath, 'rb') as f:
+    with open(sourceFileName, 'rb') as f:
         opFileRaw = f.read()
 
     # retrieve the IV from the end of the message
-    iv = opFileRaw[-6:]
-    opFile = opFileRaw[:-6]
+    iv = opFileRaw[-4:]
+    opFile = opFileRaw[:-4]
 
 # if mode is encryption
-elif mode == 'e':
+else:
+    # generate or load key
     if newKey == 'n':
-        # for new key, select where to save it and generate it
-        keyFileName = input("Provide a path and filename for where the key should be saved: ")
         rawKey = generate_key(keyFileName)
-    elif newKey == 'e':
-        # for existing key, specify location and load it
-        keyFileName = input("Provide the path to the key you would like to load: ")
-        rawKey = load_key(keyFileName)
     else:
-        print("Invalid option. Please choose n or e.")
-        sys.exit()
-    
-    # load the file for encryption
-    encrypFilePath = input("Enter the path to the file you would like to encrypt: ")
-    with open(encrypFilePath, 'rb') as f:
+        rawKey = load_key(keyFileName)
+    # open source file
+    with open(sourceFileName, 'rb') as f:
         opFile = f.read()
 
     # create an IV
     iv = generate_iv()
-
-else:
-    print("Invalid mode entered. Please choose e or d.")
-    sys.exit()
 
 #### at this point we have the rawKey, iv, and opFile all set. All further operations are the same for encryption and decryption
 #### so we can group them together.
@@ -235,7 +239,7 @@ else:
 # combine IV with counter to create a list of unique IVs equal to number of blocks
 ivList = []
 for i in range(numBlocks):
-    counter = i.to_bytes(2, byteorder='big')
+    counter = i.to_bytes(4, byteorder='big')
     ivList.append(iv + counter)
 
 # run the block cipher to build the keystream
