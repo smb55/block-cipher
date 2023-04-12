@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import secrets
 import sys
-import pathlib
+from pathlib import Path
 
 ##################
 ##################
@@ -50,14 +50,14 @@ perm = [6, 1, 3, 8, 2, 7, 5, 4]
 
 #### Key, key schedule, and IV generation functions
 
-def load_key(filename):
+def load_key(keyFileName):
     '''This function loads a 16 byte key from filename and returns it as a list four 4-bye bytearrays.'''
-    with open(filename, 'rb') as f:
+    with keyFileName.open(mode='rb') as f:
         data = f.read()
         wordList = [bytearray(data[i:i+4]) for i in range(0, 16, 4)]
         return wordList
 
-def generate_key(fileName):
+def generate_key(keyFileName):
     '''This function generates an initial 16 byte key. It saves the key as a single byte array to the filename specified
     and returns the key as four 4-byte words (bytearrays), ready to be expanded with the generate_key_words function.'''
     # generate the key as a four 4-bye word list
@@ -67,7 +67,7 @@ def generate_key(fileName):
     for word in wordList:
         fullKey.extend(word)  
     # save the key to the specified filename
-    with open(fileName, 'wb') as f:
+    with keyFileName.open(mode='wb') as f:
         f.write(fullKey)
 
     return wordList
@@ -149,12 +149,10 @@ def build_keystream(numBlocks, excessLen):
      number of blocks and the amount of excess bytes that need to be trimmed at the end.'''
     keyStream = bytearray()
     # encrypt each of the IV+counter combos in turn and add them to the key stream
-    blocks = 0
-    for ivValue in gen_iv_blocks(iv):
+    for i in range(numBlocks):
+        ivValue = next(gen_iv_blocks(iv))
         keyStream.extend(encrypt(ivValue, keySchedule))
-        blocks += 1
-        if blocks == numBlocks:
-            break
+
     # remove the excess bytes to match the original file length (if there are excess bytes)
     if excessLen != 0:
         keyStream = keyStream[:(excessLen * -1)]
@@ -186,17 +184,17 @@ cipher = input("[S]tream or [B]lock cipher? ").lower()
 mode = input("[D]ecrypt or [E]ncrypt? ").lower()
 if mode == 'd':
     # load the key
-    keyFileName = input("Provide the path to the key you would like to load: ")
+    keyFileName = Path(input("Provide the path to the key you would like to load: "))
 elif mode == 'e':
     # select new or existing key
     newKey = input("Use a [n]ew or [e]xisting key? " ).lower()
 
     if newKey == 'n':
         # for new key, select where to save it and generate it
-        keyFileName = input("Provide a path and filename for where the key should be saved: ")
+        keyFileName = Path(input("Provide a path and filename for where the key should be saved: "))
     elif newKey == 'e':
         # for existing key, specify location and load it
-        keyFileName = input("Provide the path to the key you would like to load: ")
+        keyFileName = Path(input("Provide the path to the key you would like to load: "))
     else:
         print("Invalid key selection. Please choose n or e.")
         sys.exit()
@@ -204,17 +202,16 @@ else:
     print("Invalid mode selection. Please choose e or d.")
     sys.exit()
 
-# load the source file
-sourceFileName = input("Enter the path to the source file: ")
+# set the location of the source file
+sourceFileName = Path(input("Enter the path to the source file: "))
 # set the destination for the transformed data
-destFileName = input("Enter the path and filename for the destination file: ")
-
+destFileName = Path(input("Enter the path and filename for the destination file: "))
 
 # if mode is decryption
 if mode == 'd':
     rawKey = load_key(keyFileName)
-
-    with open(sourceFileName, 'rb') as f:
+    # load the source file
+    with sourceFileName.open(mode='rb') as f:
         opFileRaw = f.read()
 
     # retrieve the IV from the end of the message
@@ -229,14 +226,13 @@ else:
     else:
         rawKey = load_key(keyFileName)
     # open source file
-    with open(sourceFileName, 'rb') as f:
+    with sourceFileName.open(mode='rb') as f:
         opFile = f.read()
 
     # create an IV
     iv = generate_iv()
 
-#### at this point we have the rawKey, iv, and opFile all set. All further operations are the same for encryption and decryption
-#### so we can group them together.
+#### at this point all further operations are the same for encryption and decryption so we can group them together.
 
 # build the key schedule
 keySchedule = generate_key_schedule(generate_key_words(rawKey))
@@ -262,7 +258,7 @@ if mode == 'e':
     outputData += iv
 
 # write the output to the specified file
-with open(destFileName, 'wb') as f:
+with destFileName.open(mode='wb') as f:
     f.write(outputData)
 
 print("Operation complete.")
