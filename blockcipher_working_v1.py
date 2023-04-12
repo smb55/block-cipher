@@ -2,7 +2,12 @@
 import secrets
 import sys
 
-# this is a change. asfada fawf afeafefes asfafaawf
+##################
+##################
+# BLOCK CIPHER CODE
+##################
+##################
+
 # specify the s-box lookup table as a dictionary (this is the exact AES s-box)
 sbox = {
     0x00: 0x63, 0x01: 0x7c, 0x02: 0x77, 0x03: 0x7b, 0x04: 0xf2, 0x05: 0x6b, 0x06: 0x6f, 0x07: 0xc5,
@@ -159,17 +164,25 @@ def transform(opFile, keyStream):
 #### main program
 ####
 
+# select stream or block cipher
+cipher = input("[S]tream or [B]lock cipher? ").lower()
 # select encryption or decryption
 mode = input("[D]ecrypt or [E]ncrypt? ").lower()
-
-# if mode is decryption
 if mode == 'd':
     # load the key
     keyFileName = input("Provide the path to the key you would like to load: ")
+elif mode == 'e':
+    # select new or existing key
+    newKey = input("Use a [n]ew or [e]xisting key? " ).lower()
+# load the file for decryption
+decryptFilePath = input("Enter the path to the file you would like to decrypt: ")
+# set the destination for the transformed data
+destFileName = input("Enter the path and filename for where you would like to save the output: ")
+
+# if mode is decryption
+if mode == 'd':
     rawKey = load_key(keyFileName)
 
-    # load the file for decryption
-    decryptFilePath = input("Enter the path to the file you would like to decrypt: ")
     with open(decryptFilePath, 'rb') as f:
         opFileRaw = f.read()
 
@@ -179,8 +192,6 @@ if mode == 'd':
 
 # if mode is encryption
 elif mode == 'e':
-    # select new or existing key
-    newKey = input("Use a [n]ew or [e]xisting key? " ).lower()
     if newKey == 'n':
         # for new key, select where to save it and generate it
         keyFileName = input("Provide a path and filename for where the key should be saved: ")
@@ -207,9 +218,6 @@ else:
 
 #### at this point we have the rawKey, iv, and opFile all set. All further operations are the same for encryption and decryption
 #### so we can group them together.
-
-# set the destination for the transformed data
-destFileName = input("Enter the path and filename for where you would like to save the output: ")
 
 # build the key schedule
 keySchedule = generate_key_schedule(generate_key_words(rawKey))
