@@ -74,7 +74,7 @@ def generate_key(keyFileName):
 
 # define a function to create 24 words based on the original 4-word key, to be used to populate the key schedule
 def generate_key_schedule(keys, totalKeys):
-    '''This recursive function takes a list of 8-byte keys (bytearrays) and returns an expanded 12 key list.
+    '''This recursive function takes a list of 8-byte keys (bytearrays) and returns an expanded key list size totalKeys.
     Pass it the original 16-byte key as a list of two 8-byte keys (as bytearrays), and 12 keys will be 
     returned that can be used as the 12 8-byte round keys.'''
     if len(keys) == totalKeys:
