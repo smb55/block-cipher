@@ -222,8 +222,8 @@ if cipher == 'b':
             opFileRaw = f.read()
 
         # retrieve the IV from the end of the message
-        iv = opFileRaw[-4:]
-        opFile = opFileRaw[:-4]
+        iv = opFileRaw[-8:]
+        opFile = opFileRaw[:-8]
 
     # if mode is encryption
     else:
