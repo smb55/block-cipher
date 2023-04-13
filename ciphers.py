@@ -89,30 +89,39 @@ def generate_key_schedule(keys, totalKeys):
    
         # then we run the function again - will continue until the list is 24 words long. At this point it will return the list
         # of 24 bytearrays back up the chain to the original function call.
-        return generate_key_schedule(keys)
+        return generate_key_schedule(keys, totalKeys)
 
 def generate_iv():
-    '''Return a random 4 byte IV as bytes.'''
-    return secrets.token_bytes(4)
+    '''Return a random 8 byte IV as bytes.'''
+    return secrets.token_bytes(8)
 
 #### functions to build the keystream and transform the data
 
 def encrypt(input, keySchedule):
-    '''This function runs the encryption algorithm on the input block, with provided keySchedule. Input must be 8 bytes.
+    '''This function runs the encryption algorithm on the input block, with provided keySchedule. Input must be 16 bytes.
     keySchedule must be a list of 12 8-byte keys.'''
     # convert the input into a bytearray
-    print("New Block:")
-    data = bytearray(input)
-    print("Initial Data:", data)
+    #print("New Block:")
+    # split the block in two halves
+    dataOne = bytearray(input[:8])
+    dataTwo = bytearray(input[8:])
+    #print("Initial Data:", data)
     # run 12 rounds of encryption (as long as a 12 item list of keys has been provided)
     for key in keySchedule:
-        # first permutate the order of the bytes and then run the s-box substitution
-        data = sbox_sub(permutate(data))
-        # mix with the key using XOR
-        data = bytearray([dataByte ^ keyByte for dataByte, keyByte in zip(data, bytearray(key))])
-        print(data)
+        # first swap the halves
+        dataOne, dataTwo = dataTwo, dataOne
+        # then permutate the order of the bytes and then run the s-box substitution on dataOne
+        dataOne = sbox_sub(permutate(dataOne))
+        # mix dataOne with the key using XOR
+        dataOne = bytearray([dataByte ^ keyByte for dataByte, keyByte in zip(dataOne, bytearray(key))])
+        # XOR the new dataOne with dataTwo to get new dataTwo
+        dataTwo = bytearray([dataByte ^ keyByte for dataByte, keyByte in zip(dataOne, dataTwo)])
+        #print(data)
+    
+    # combine the halves
+    output = dataOne + dataTwo
 
-    return bytes(data)
+    return bytes(output)
 
 def permutate(data):
     '''This function rearranges the bytes in an 8-byte array according to the set permutation table.'''
@@ -130,7 +139,7 @@ def build_keystream(numBlocks, excessLen, keySchedule, iv):
     ivGen = gen_iv_blocks(iv)
     for i in range(numBlocks):
         ivValue = next(ivGen)
-        print("IV:", ivValue)
+        #print("IV:", ivValue)
         keyStream.extend(encrypt(ivValue, keySchedule))
 
     # remove the excess bytes to match the original file length (if there are excess bytes)
@@ -144,7 +153,7 @@ def gen_iv_blocks(iv):
     takes the iv as argument and will yield successive iv+counter values until the counter hits 4 bytes and it breaks.'''
     i = 0
     while True:
-        counter = i.to_bytes(4, byteorder='big')
+        counter = i.to_bytes(8, byteorder='big')
         i += 1
         yield (iv + counter)
 
@@ -233,14 +242,14 @@ if cipher == 'b':
     #### at this point all further operations are the same for encryption and decryption so we can group them together.
 
     # build the key schedule
-    keySchedule = generate_key_schedule(rawKey, 12)
+    keySchedule = generate_key_schedule(rawKey,12)
 
     # calc number of blocks and the number of bytes that need to be removed from the end of the keystream to match th input file length
-    fullBlocks = len(opFile) // 8
+    fullBlocks = len(opFile) // 16
 
-    if len(opFile) % 8 != 0:
+    if len(opFile) % 16 != 0:
         numBlocks = fullBlocks + 1
-        excessLen = 8 - (len(opFile) % 8)
+        excessLen = 16 - (len(opFile) % 16)
     else:
         numBlocks = fullBlocks
         excessLen = 0
