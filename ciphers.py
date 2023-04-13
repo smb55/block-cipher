@@ -76,7 +76,7 @@ def generate_key(keyFileName):
 def generate_key_schedule(keys, totalKeys):
     '''This recursive function takes a list of 8-byte keys (bytearrays) and returns an expanded key list size totalKeys.
     Pass it the original 16-byte key as a list of two 8-byte keys (as bytearrays), and 12 keys will be 
-    returned that can be used as the 12 8-byte round keys.'''
+    returned that can be used as the 12 8-byte round keys. totalKeys MUST be a multiple of 2.'''
     if len(keys) == totalKeys:
         return keys
     else:
@@ -101,16 +101,16 @@ def encrypt(input, keySchedule):
     '''This function runs the encryption algorithm on the input block, with provided keySchedule. Input must be 8 bytes.
     keySchedule must be a list of 12 8-byte keys.'''
     # convert the input into a bytearray
-    #print("New Block:")
+    print("New Block:")
     data = bytearray(input)
-    #print("Initial Data:", data)
+    print("Initial Data:", data)
     # run 12 rounds of encryption (as long as a 12 item list of keys has been provided)
     for key in keySchedule:
         # first permutate the order of the bytes and then run the s-box substitution
         data = sbox_sub(permutate(data))
         # mix with the key using XOR
         data = bytearray([dataByte ^ keyByte for dataByte, keyByte in zip(data, bytearray(key))])
-        #print(data)
+        print(data)
 
     return bytes(data)
 
