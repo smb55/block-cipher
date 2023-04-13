@@ -192,18 +192,20 @@ if mode == 'd':
     # load the key
     keyFileName = Path(input("Provide the path to the key you would like to load: "))
 elif mode == 'e':
-    # select new or existing key
-    newKey = input("Use a [n]ew or [e]xisting key? " ).lower()
+    if not cipher == 's':
+        # select new or existing key - block cipher only
+        newKey = input("Use a [n]ew or [e]xisting key? " ).lower()
 
-    if newKey == 'n':
-        # for new key, select where to save it and generate it
-        keyFileName = Path(input("Provide a path and filename for where the key should be saved: "))
-    elif newKey == 'e':
-        # for existing key, specify location and load it
-        keyFileName = Path(input("Provide the path to the key you would like to load: "))
-    else:
-        print("Invalid key selection. Please choose n or e.")
-        sys.exit()
+        if newKey == 'n':
+            # for new key, select where to save it and generate it
+            keyFileName = Path(input("Provide a path and filename for where the key should be saved: "))
+        elif newKey == 'e':
+            # for existing key, specify location and load it
+            keyFileName = Path(input("Provide the path to the key you would like to load: "))
+        else:
+            print("Invalid key selection. Please choose n or e.")
+            sys.exit()
+
 else:
     print("Invalid mode selection. Please choose e or d.")
     sys.exit()
@@ -286,17 +288,11 @@ elif cipher == 's':
         with sourceFileName.open(mode='rb') as f:
             sourceFile = f.read()
         
-        if newKey == 'n':
-            # if a new key is selected, create a key with length equal to source file length
-            key = secrets.token_bytes(len(sourceFile))
-            #  write it to file
-            with keyFileName.open(mode='wb') as f:
-                f.write(key)
-        
-        elif newKey == 'e':
-            # if existing key is selected, just open the existing key
-            with keyFileName.open(mode='rb') as f:
-                key = f.read()
+        #create a key with length equal to source file length
+        key = secrets.token_bytes(len(sourceFile))
+        #  write it to file
+        with keyFileName.open(mode='wb') as f:
+            f.write(key)
 
         # use the transform function to XOR the data with the key, then save it to file
         with destFileName.open(mode='wb') as f:
