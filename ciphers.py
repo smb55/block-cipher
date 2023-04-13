@@ -166,14 +166,6 @@ def gen_iv_blocks(iv):
 
 ##################
 ##################
-# STREAM CIPHER FUNCTIONS
-##################
-##################
-
-
-
-##################
-##################
 # SHARED FUNCTIONS
 ##################
 ##################
@@ -290,40 +282,45 @@ if cipher == 'b':
 
 elif cipher == 's':
     if mode == 'e':
+        # in encryption mode first load the source file to be encrypted
         with sourceFileName.open(mode='rb') as f:
             sourceFile = f.read()
         
-        length = len(sourceFile)
-        
         if newKey == 'n':
-            key = secrets.token_bytes(length)
+            # if a new key is selected, create a key with length equal to source file length
+            key = secrets.token_bytes(len(sourceFile))
+            #  write it to file
             with keyFileName.open(mode='wb') as f:
                 f.write(key)
         
         elif newKey == 'e':
+            # if existing key is selected, just open the existing key
             with keyFileName.open(mode='rb') as f:
                 key = f.read()
-                
-        # encrypt sourceFile with key
-        newData = bytes([data ^ keydata for data, keydata in zip(sourceFile, key)])
 
+        # use the transform function to XOR the data with the key, then save it to file
         with destFileName.open(mode='wb') as f:
-            f.write(newData)
+            f.write(transform(sourceFile, key))
 
     elif mode == 'd':
+        # in decryption mode, load the source file to be decrypted
         with sourceFileName.open(mode='rb') as f:
             sourceFile = f.read()
+        # load the key from the specified path
         with keyFileName.open(mode='rb') as f:
             key = f.read()
 
-        newData = bytes([data ^ keydata for data, keydata in zip(sourceFile, key)])
-
+        # use the transform function to XOR the data with the key, then save it to file
         with destFileName.open(mode='wb') as f:
-            f.write(newData)
+            f.write(transform(sourceFile, key))
 
+    else:
+        # bad input
+        print("Invalid mode selected. Please enter d or e.")
 
 
 else:
+    # bad input
     print("Invalid cipher selected. Please enter b or s.")
 
 print("Operation complete.")
