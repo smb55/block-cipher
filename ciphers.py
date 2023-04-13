@@ -80,7 +80,6 @@ def generate_key_words(words):
 
     if len(words) == 24:
         return words
-
     else:
         # every 4th word should be put through the g function first
         if len(words) % 4 == 0:
@@ -96,16 +95,14 @@ def generate_key_words(words):
         return generate_key_words(words)
 
 def gfunc(word):
-    '''This function transforms a four-byte array in three ways. It rotates the bytes one position left, then performs
+    '''This function transforms a four-byte array in three ways. It rotates the bytes one position right, then performs
     an s-box substitution, and then flips all of the bits in the first byte.'''
-    # rotate the bytes in the word one position left
-    rotatedArray = word[1:] + word[:1]
+    # rotate the bytes in the word one position right
+    rotatedArray = word[3:] + word[:3]
     # substiture the array with the sbox
     substitutedArray = bytearray([sbox[int(i)] for i in rotatedArray])
-    # flip the bits in the first byte of the word by XORing with ff
-    flippedArray = bytearray([substitutedArray[0] ^ 0xff, substitutedArray[1], substitutedArray[2], substitutedArray[3]])
-
-    return flippedArray
+    # flip the bits in the first byte of the word by XORing with ff then return it
+    return bytearray([substitutedArray[0] ^ 0xff, substitutedArray[1], substitutedArray[2], substitutedArray[3]])
 
 def generate_key_schedule(keyWords):
     '''This function assembles the list of 24 words into a list of 12 8-byte keys'''
@@ -126,7 +123,6 @@ def encrypt(input, keySchedule):
     keySchedule must be a list of 12 8-byte keys.'''
     # convert the input into a bytearray
     data = bytearray(input)
-    
     # run 12 rounds of encryption (as long as a 12 item list of keys has been provided)
     for key in keySchedule:
         # first permutate the order of the bytes and then run the s-box substitution
@@ -168,8 +164,23 @@ def gen_iv_blocks(iv):
         i += 1
         yield iv + counter
 
+##################
+##################
+# STREAM CIPHER FUNCTIONS
+##################
+##################
+
+
+
+##################
+##################
+# SHARED FUNCTIONS
+##################
+##################
+
 def transform(opFile, keyStream):
-    '''This function transforms the file by XORing it with the provided keystream.'''
+    '''This function transforms the file by XORing it with the provided keystream.
+    File and keystream must be binary files the same length.'''
     return(bytes(data ^ key for data, key in zip(opFile, keyStream)))
 
 ##################
@@ -277,9 +288,40 @@ if cipher == 'b':
 ##################
 ##################
 
-if cipher == 's':
-    # stream cipher code here - remember to remove pass
-    pass
+elif cipher == 's':
+    if mode == 'e':
+        with sourceFileName.open(mode='rb') as f:
+            sourceFile = f.read()
+        
+        length = len(sourceFile)
+        
+        if newKey == 'n':
+            key = secrets.token_bytes(length)
+            with keyFileName.open(mode='wb') as f:
+                f.write(key)
+        
+        elif newKey == 'e':
+            with keyFileName.open(mode='rb') as f:
+                key = f.read()
+                
+        # encrypt sourceFile with key
+        newData = bytes([data ^ keydata for data, keydata in zip(sourceFile, key)])
+
+        with destFileName.open(mode='wb') as f:
+            f.write(newData)
+
+    elif mode == 'd':
+        with sourceFileName.open(mode='rb') as f:
+            sourceFile = f.read()
+        with keyFileName.open(mode='rb') as f:
+            key = f.read()
+
+        newData = bytes([data ^ keydata for data, keydata in zip(sourceFile, key)])
+
+        with destFileName.open(mode='wb') as f:
+            f.write(newData)
+
+
 
 else:
     print("Invalid cipher selected. Please enter b or s.")
