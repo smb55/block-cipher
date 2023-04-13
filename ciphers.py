@@ -46,7 +46,7 @@ sbox = {
 }
 
 # specify the byte permutation table
-perm = [6, 1, 3, 8, 2, 7, 5, 4]
+perm = [7, 6, 1, 8, 4, 3, 5, 2]
 
 #### Key, key schedule, and IV generation functions
 
