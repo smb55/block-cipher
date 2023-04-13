@@ -51,66 +51,45 @@ perm = [7, 6, 1, 8, 4, 3, 5, 2]
 #### Key, key schedule, and IV generation functions
 
 def load_key(keyFileName):
-    '''This function loads a 16 byte key from filename and returns it as a list four 4-bye bytearrays.'''
+    '''This function loads a 16 byte key from filename and returns it as a list of two 8-bye bytearrays.'''
     with keyFileName.open(mode='rb') as f:
         data = f.read()
-        wordList = [bytearray(data[i:i+4]) for i in range(0, 16, 4)]
-        return wordList
+        keyList = [bytearray(data[i:i+8]) for i in range(0, 16, 8)]
+        return keyList
 
 def generate_key(keyFileName):
-    '''This function generates an initial 16 byte key. It saves the key as a single byte array to the filename specified
-    and returns the key as four 4-byte words (bytearrays), ready to be expanded with the generate_key_words function.'''
+    '''This function generates an initial 16 byte key. It saves the key as a single bytes file to the filename specified
+    and returns the key as two 8-byte sub keys (as bytearrays), ready to be expanded with the generate_key_schedule function.'''
     # generate the key as a four 4-bye word list
-    wordList = [bytearray(secrets.token_bytes(4)) for i in range(4)]  
+    keyList = [bytearray(secrets.token_bytes(8)) for i in range(2)]  
     # convert it to a single bytearray for saving
     fullKey = bytearray()
-    for word in wordList:
-        fullKey.extend(word)  
+    for key in keyList:
+        fullKey.extend(key)  
     # save the key to the specified filename
     with keyFileName.open(mode='wb') as f:
-        f.write(fullKey)
+        f.write(bytes(fullKey))
 
-    return wordList
+    return keyList
 
 # define a function to create 24 words based on the original 4-word key, to be used to populate the key schedule
-def generate_key_words(words):
-    '''This recursive function takes a list of 4-byte words (bytearrays) and returns an expanded 24 word list.
-    Pass it the original 16-byte key as a list of four 4-byte words (as bytearrays), and 24 words will be 
-    returned that can be assembled into the 12 8-byte round keys.'''
-
-    if len(words) == 24:
-        return words
+def generate_key_schedule(keys, totalKeys):
+    '''This recursive function takes a list of 8-byte keys (bytearrays) and returns an expanded 12 key list.
+    Pass it the original 16-byte key as a list of two 8-byte keys (as bytearrays), and 12 keys will be 
+    returned that can be used as the 12 8-byte round keys.'''
+    if len(keys) == totalKeys:
+        return keys
     else:
-        # every 4th word should be put through the g function first
-        if len(words) % 4 == 0:
-            # run the last word through the g function, XOR it with the word 3 places behind, and then append the result
-            words.append(bytearray([a ^ b for a, b in zip(gfunc(words[-1]), words[-4])]))
-        
-        # otherwise the final word just gets XOR'd with the word 3 places behind, and appended
-        else:
-            words.append(bytearray([a ^ b for a, b in zip(words[-1], words[-4])]))
-
+        # generate the next key and add it to the keys
+        # transform the last key by permutating then sbox substituting
+        firstTransform = sbox_sub(permutate(keys[-1]))
+        # then XOR the result with the second last key, and add the result to the keys list
+        newKey = bytearray([a ^ b for a, b, in zip(firstTransform, keys[-2])])
+        keys.append(newKey)
+   
         # then we run the function again - will continue until the list is 24 words long. At this point it will return the list
         # of 24 bytearrays back up the chain to the original function call.
-        return generate_key_words(words)
-
-def gfunc(word):
-    '''This function transforms a four-byte array in three ways. It rotates the bytes one position right, then performs
-    an s-box substitution, and then flips all of the bits in the first byte.'''
-    # rotate the bytes in the word one position right
-    rotatedArray = word[3:] + word[:3]
-    # substiture the array with the sbox
-    substitutedArray = bytearray([sbox[int(i)] for i in rotatedArray])
-    # flip the bits in the first byte of the word by XORing with ff then return it
-    return bytearray([substitutedArray[0] ^ 0xff, substitutedArray[1], substitutedArray[2], substitutedArray[3]])
-
-def generate_key_schedule(keyWords):
-    '''This function assembles the list of 24 words into a list of 12 8-byte keys'''
-    keyList = []
-    # iterate through the list of words and concat each pair into a single 8-byte bytes object
-    for i in range(0, 24, 2):
-        keyList.append(bytes(keyWords[i] + keyWords[i+1]))
-    return keyList
+        return generate_key_schedule(keys)
 
 def generate_iv():
     '''Return a random 4 byte IV as bytes.'''
@@ -122,13 +101,16 @@ def encrypt(input, keySchedule):
     '''This function runs the encryption algorithm on the input block, with provided keySchedule. Input must be 8 bytes.
     keySchedule must be a list of 12 8-byte keys.'''
     # convert the input into a bytearray
+    #print("New Block:")
     data = bytearray(input)
+    #print("Initial Data:", data)
     # run 12 rounds of encryption (as long as a 12 item list of keys has been provided)
     for key in keySchedule:
         # first permutate the order of the bytes and then run the s-box substitution
         data = sbox_sub(permutate(data))
         # mix with the key using XOR
         data = bytearray([dataByte ^ keyByte for dataByte, keyByte in zip(data, bytearray(key))])
+        #print(data)
 
     return bytes(data)
 
@@ -140,13 +122,15 @@ def sbox_sub(data):
      '''This function substitutes all bytes in the data bytearray with their matching entry in the s-box'''
      return bytearray([sbox[int(i)] for i in data])   
 
-def build_keystream(numBlocks, excessLen):
+def build_keystream(numBlocks, excessLen, keySchedule, iv):
     '''This function builds the synchronous stream cipher used to encrypt/decrypt the plaintext. Input args are the
-     number of blocks and the amount of excess bytes that need to be trimmed at the end.'''
+     number of blocks, the amount of excess bytes that need to be trimmed at the end, the key schedule, and the iv.'''
     keyStream = bytearray()
     # encrypt each of the IV+counter combos in turn and add them to the key stream
+    ivGen = gen_iv_blocks(iv)
     for i in range(numBlocks):
-        ivValue = next(gen_iv_blocks(iv))
+        ivValue = next(ivGen)
+        print("IV:", ivValue)
         keyStream.extend(encrypt(ivValue, keySchedule))
 
     # remove the excess bytes to match the original file length (if there are excess bytes)
@@ -162,7 +146,7 @@ def gen_iv_blocks(iv):
     while True:
         counter = i.to_bytes(4, byteorder='big')
         i += 1
-        yield iv + counter
+        yield (iv + counter)
 
 ##################
 ##################
@@ -195,7 +179,6 @@ elif mode == 'e':
     if not cipher == 's':
         # select new or existing key - block cipher only
         newKey = input("Use a [n]ew or [e]xisting key? " ).lower()
-
         if newKey == 'n':
             # for new key, select where to save it and generate it
             keyFileName = Path(input("Provide a path and filename for where the key should be saved: "))
@@ -250,7 +233,7 @@ if cipher == 'b':
     #### at this point all further operations are the same for encryption and decryption so we can group them together.
 
     # build the key schedule
-    keySchedule = generate_key_schedule(generate_key_words(rawKey))
+    keySchedule = generate_key_schedule(rawKey, 12)
 
     # calc number of blocks and the number of bytes that need to be removed from the end of the keystream to match th input file length
     fullBlocks = len(opFile) // 8
@@ -263,7 +246,7 @@ if cipher == 'b':
         excessLen = 0
 
     # run the block cipher to build the keystream
-    keyStream = build_keystream(numBlocks, excessLen)
+    keyStream = build_keystream(numBlocks, excessLen, keySchedule, iv)
 
     # encrypt/decrypt by XORing the input with the keystream
     outputData = transform(opFile, keyStream)
@@ -288,7 +271,7 @@ elif cipher == 's':
         with sourceFileName.open(mode='rb') as f:
             sourceFile = f.read()
         
-        #create a key with length equal to source file length
+        # create a key with length equal to source file length
         key = secrets.token_bytes(len(sourceFile))
         #  write it to file
         with keyFileName.open(mode='wb') as f:
