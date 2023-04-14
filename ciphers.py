@@ -244,7 +244,7 @@ if cipher == 'b':
     # build the key schedule
     keySchedule = generate_key_schedule(rawKey,12)
 
-    # calc number of blocks and the number of bytes that need to be removed from the end of the keystream to match th input file length
+    # calc number of blocks and the number of bytes that need to be removed from the end of the keystream to match the input file length
     fullBlocks = len(opFile) // 16
 
     if len(opFile) % 16 != 0:
@@ -281,7 +281,25 @@ elif cipher == 's':
             sourceFile = f.read()
         
         # create a key with length equal to source file length
-        key = secrets.token_bytes(len(sourceFile))
+         if len(sourcefile) <= 128:
+            key = secrets.token_bytes(len(sourceFile))
+        #if source file >128 bytes
+        else:
+            key = secrets.token_bytes(128)
+            keypart = key[127:128] #cut out last byte
+            remaining = len(sourceFile - 128) #see how many bytes are left
+            #see if 16 bytes can fit - if yes generate 16 random bytes and append to the key
+            if remaining%16 == 0:
+                while remaining%16 == 0
+                extendedkey = generate_key_schedule(keypart,1)
+                key = key + "" + extendedkey
+                remaining -= 16 #remove the 16 newly added bytes to know how much remains
+                
+            #if 16 bytes is too much generate only enough bytes to fit the source file length and append to key
+            else:
+                extendedkey = secrets.token_bytes(remaining)
+                key = key + "" + extendedkey
+                
         #  write it to file
         with keyFileName.open(mode='wb') as f:
             f.write(key)
