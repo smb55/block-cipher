@@ -276,23 +276,28 @@ if cipher == 'b':
 
 elif cipher == 's':
     if mode == 'e':
+        # for new key, select where to save it and generate it
+        keyFileName = Path(input("Provide a path and filename for where the key should be saved: "))
+        
         morekeys = 0
         # in encryption mode first load the source file to be encrypted
         with sourceFileName.open(mode='rb') as f:
             sourceFile = f.read()
         
         # create a key with length equal to source file length
-        if len(sourcefile) <= 128:
+        if len(sourceFile) <= 128:
             key = secrets.token_bytes(len(sourceFile))
         else: #if the sourcefile is longer than 128 bytes
             key = secrets.token_bytes(128)
-            remaining = len(sourcefile) - 128
+            remaining = len(sourceFile) - 128
             keyparts = [key[112:120], key[120:128]]
-            while remaining/8 ==0 && remaining > 0:
+            while remaining // 8 > 0:
                 morekeys += 1
                 remaining -= 8
-            extrakey = 8 - (remaining%8)
-            newkeys = generate_key_schedule(keyparts,(morekeys + 1))
+            extrakey = 8 - (remaining % 8)
+            newKeys = generate_key_schedule(keyparts,(morekeys + 1))
+            for newKey in newKeys:
+                key += newKey
             key = key[:-extrakey]
         
         #  write it to file
