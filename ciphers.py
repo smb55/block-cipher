@@ -276,12 +276,25 @@ if cipher == 'b':
 
 elif cipher == 's':
     if mode == 'e':
+        morekeys = 0
         # in encryption mode first load the source file to be encrypted
         with sourceFileName.open(mode='rb') as f:
             sourceFile = f.read()
         
         # create a key with length equal to source file length
-        key = secrets.token_bytes(len(sourceFile))
+        if len(sourcefile) <= 128:
+            key = secrets.token_bytes(len(sourceFile))
+        else: #if the sourcefile is longer than 128 bytes
+            key = secrets.token_bytes(128)
+            remaining = len(sourcefile) - 128
+            keyparts = [key[112:120], key[120:128]]
+            while remaining/8 ==0 && remaining > 0:
+                morekeys += 1
+                remaining -= 8
+            extrakey = 8 - (remaining%8)
+            newkeys = generate_key_schedule(keyparts,(morekeys + 1))
+            key = key[:-extrakey]
+        
         #  write it to file
         with keyFileName.open(mode='wb') as f:
             f.write(key)
@@ -312,3 +325,4 @@ else:
     print("Invalid cipher selected. Please enter b or s.")
 
 print("Operation complete.")
+
