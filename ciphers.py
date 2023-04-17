@@ -150,7 +150,7 @@ def build_keystream(numBlocks, excessLen, keySchedule, iv):
 
 def gen_iv_blocks(iv):
     '''This is a generator function that will generate the next iv + counter combo to be encrypted by the block cipher.
-    takes the iv as argument and will yield successive iv+counter values until the counter hits 4 bytes and it breaks.'''
+    takes the iv as argument and will yield successive iv+counter values until the counter hits 8 bytes and it breaks.'''
     i = 0
     while True:
         counter = i.to_bytes(8, byteorder='big')
