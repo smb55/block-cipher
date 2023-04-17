@@ -170,6 +170,25 @@ def transform(opFile, keyStream):
 
 ##################
 ##################
+# STREAM CIPHER FUNCTIONS
+##################
+##################
+
+
+def extend_key(key, length):    
+    keyparts = [key[1008:1016], key[1016:1024]]
+    remaining = length - 1024
+    moreKeys = remaining // 8 + 1
+    extrakey = 8 - (remaining % 8)
+    newKeys = generate_key_schedule(keyparts, moreKeys)
+    
+    for newKey in newKeys:
+        key += newKey
+    key = key[:-extrakey]
+    return key
+
+##################
+##################
 # SHARED MAIN PROGRAM CODE - INPUTS
 ##################
 ##################
@@ -285,24 +304,16 @@ elif cipher == 's':
             sourceFile = f.read()
         
         # create a key with length equal to source file length
-        if len(sourceFile) <= 128:
-            key = secrets.token_bytes(len(sourceFile))
-        else: #if the sourcefile is longer than 128 bytes
-            key = secrets.token_bytes(128)
-            remaining = len(sourceFile) - 128
-            keyparts = [key[112:120], key[120:128]]
-            while remaining // 8 > 0:
-                morekeys += 1
-                remaining -= 8
-            extrakey = 8 - (remaining % 8)
-            newKeys = generate_key_schedule(keyparts,(morekeys + 1))
-            for newKey in newKeys:
-                key += newKey
-            key = key[:-extrakey]
+        if len(sourceFile) <= 1024:
+            seedKey = secrets.token_bytes(len(sourceFile))
+            key = seedKey
+        else: #if the sourcefile is longer than 1024 bytes
+            seedKey = secrets.token_bytes(1024)
+            key = extend_key(seedKey, len(sourceFile))
         
-        #  write it to file
+        #  write the seed key to file
         with keyFileName.open(mode='wb') as f:
-            f.write(key)
+            f.write(seedKey)
 
         # use the transform function to XOR the data with the key, then save it to file
         with destFileName.open(mode='wb') as f:
@@ -315,6 +326,10 @@ elif cipher == 's':
         # load the key from the specified path
         with keyFileName.open(mode='rb') as f:
             key = f.read()
+        
+        # if the file is larger than 1024 bytes, extend the key
+        if len(sourceFile) > 1024:
+            key = extend_key(key, len(sourceFile))
 
         # use the transform function to XOR the data with the key, then save it to file
         with destFileName.open(mode='wb') as f:
