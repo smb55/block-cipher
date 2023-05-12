@@ -1,41 +1,62 @@
-# block-cipher
+# Encryption programs
 
-A python implementation of a block cipher using elements from the AES and DES systems and a simple one-time-pad stream cipher
+# Symmetric
 
-There has been very little input sanitisaion or error handling done. Only files located in the working directory have been tested as working.
+The symmetric.py file contains a python implementation of a block cipher using elements from the AES and DES systems and a stream cipher using the secrets module to create a simple one-time-pad stream cipher for short messages, and utilising the block cipher's key generation algorithm to create an infinitely long stream for longer messages.
 
-Key Schedule Generation 
+There has been very little input sanitisaion or error handling done, however both files should work in Windows and Linux as long as valid file paths are provided.
 
-Use python secrets module to generate a (true?) random 128 bit (16 byte / 4 word) key 
-Create 12 64-bit (8 byte / 2 word) keys from this 128-bit seed key with the following process: 
-Working with 4-byte words, process is similar to AES: 
-First four words are the four words in the original key. 
-To get 5th word, 4th word is put through the g-function, then XOR’d with the 1st word.  
-To get 6th word, 5th word is XOR with 2nd word 
-To get 7th word, 6th word is XOR with 3rd word 
-To get 8th word, 7th word is XOR with 4th word. 
-To get 9th word, 8th word is put through g-function then XOR with 5th word 
-… and so on, just like AES key schedule until we have 24 4-byte words. 
-This is enough to make 12 2-word / 4-byte / 64-bit round keys. 
- 
-The g-function is similar to AES as well. 4 bytes (a word) is fed in, the bytes are rotated one place right, and then all four bytes are substituted with the AES s-box. This part is the same as AES. For the final step of the g-function, instead of doing another substitution table, I simply flip all of the bits in the first byte by XORing it with FF. 
+File extensions are not required for any input or output files, however they are recommended on outputs to enable Windows to open them.
 
-Block Encryption 
+# Block Cipher
 
-To encrypt a block: 
-First rearrange the bytes in the block according to the following table (permutation): 
-perm = [7, 6, 1, 8, 4, 3, 5, 2]
-I made this table up – it seems like a reasonably good permutation, it takes 9 rounds to repeat and moves the bytes around well - there are no short repeating patterns.
-Next, substitute all the bytes with the AES s-box (substitution) 
-Its possible substituting only half would be better, not sure, need to think about it 
-Then use the round key to XOR with the data (key mixing) 
-Repeat for 12 rounds with the 12 different keys 
+Key Schedule Generation:
 
-Mode of Operation 
+The algorithm starts with a 128-bit (16-byte) key, generated using the Python secrets module, which produces cryptographically secure random numbers. This key serves as the seed for creating 12 round keys, each of 64 bits (8 bytes). The generation process involves splitting the initial 16-byte seed into two 8-byte keys, and then iteratively permuting substituting and XORing these keys to create twelve round keys. Permutations are done according to our predefined table, while substitutions rely on the AES s-box.
 
-Counter mode 
+Block Encryption:
 
-4 byte IV + 4 byte counter is combined for each block 
-The 8 byte combo is encrypted with the block encryption algorithm above for each block required to exceed the length of the input file  
-Excess length is trimmed off, resulting in a keystream matching file length 
-XOR is used to encrypt the file with the keystream 
+The block encryption process, which employs a Feistel-like structure similar to DES, encrypts a data block by first splitting it in half, creating a left and right section. The algorithm then performs 12 rounds of a series of transformations using the 12 keys from the key schedule.
+During each round, the following steps are performed:
+•	Swap the left and right sections.
+•	Rearrange the bytes on the left according to a predefined permutation table: [7, 6, 1, 8, 4, 3, 5, 2] (permutation).
+•	Substitute all the bytes on the left with their corresponding values in the AES s-box (substitution).
+•	XOR the left side with the round key (key mixing).
+•	Transform the right side by XORing it with the left side (diffusion).
+These steps are repeated for a total of 12 rounds, after which the two sections are concatenated to form the final encrypted data block.
+
+Mode of Operation: 
+
+The block cipher uses Counter (CTR) mode as its mode of operation. In CTR mode, a 16-byte counter is constructed by concatenating an 8-byte initialization vector (IV) with an 8-byte block counter. The combined IV and block counter are encrypted using the block encryption algorithm described above. The encryption process produces a keystream that is as long as the input file. The keystream is then XORed with the input file to produce the encrypted output.
+
+# Stream Cipher
+
+To create the keystream, the Python “secrets” module is used. The “secrets” module is designed to provide cryptographically secure random numbers and bytes. The key extension function from the block cipher is then used to extend the key for longer messages. Encryption/decryption is a simple XOR with the keystream.
+
+# RSA System
+
+Key Generation:
+The key generation operation functions as follows:
+-	Two 512-bit prime numbers are generated by choosing random numbers and testing them with the Miller-Rabin test using a k value of 5 (Chia, 2013). These are p and q. This k value was chosen because it was recommended in the lecture notes. For a real cryptographically secure implementation I would use more because this reduces the chance of an error and the function still runs fast even with much higher values for k.
+-	A 1024-bit n is calculated by multiplying p and q (there is a check to make sure the result is actually 1024-bit).
+-	Phi is calculated from p and q
+-	65537 is used as the default value for e. This is checked to ensure it is coprime with phi, and new values are checked until it is.
+-	Find the modular multiplicative inverse (a) of e mod (phi). This is done using the extended Euclidean algorithm (Wikibooks, 2021). This value is d.
+-	The two parts to the public key, n and e, are stored in hexadecimal in a text document, delimited by a \n linebreak character
+-	The two parts of the private key, n and d, are stored in the same way.
+
+Hash Function:
+-	Input data is padded and split into 8-byte segments
+-	Starting seed is always 0x65B148EE48CE7431 (8 bytes)
+-	Hash function takes two 8-byte inputs and returns a single 8-byte output.
+o	Initial inputs are seed and the first block
+o	Subsequent inputs are the latest output and the next block
+-	The working hash is always the first input, beginning with the seed. This is manipulated and mixed with the second input as follows:
+-	Hash function operation includes 9 rounds of:
+o	Byte-permutation: perm = [7, 6, 1, 8, 4, 3, 5, 2]
+o	S-box substitution of all bytes (using AES S-box) (Daemen & Rijmen, 1999)
+o	XOR with 2nd input
+-	After all rounds are completed for each block, the final 8-byte hash is returned as the output.
+
+Encryption/Decryption/Signing/Verifying:
+All of these functions are extremely simple in RSA, see program comments for details.
